@@ -9,7 +9,8 @@ const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('
 const store = {
   customers: [],
   tenants: [],
-  onboardingStates: []
+  onboardingStates: [],
+  clients: []
 };
 
 // Seed with example data
@@ -97,7 +98,18 @@ function updateOnboardingState(customerId, updates) {
   return null;
 }
 
+function getClients() {
+  return [...store.clients];
+}
+
+function setClients(clients) {
+  store.clients = [...clients];
+  return getClients();
+}
+
 module.exports = {
+  getClients,
+  setClients,
   getCustomers,
   getCustomerById,
   addCustomer,
