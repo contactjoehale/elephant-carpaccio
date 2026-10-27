@@ -29,6 +29,17 @@ app.get('/api/sample-data/abc/clients/preview', async (req, res) => {
   }
 });
 
+app.post('/api/client-imports/preview', (req, res) => {
+  try {
+    if (typeof req.body?.csvText !== 'string' || !req.body.csvText.trim()) {
+      return res.status(400).json({ error: 'Choose a CSV file' });
+    }
+    res.json(previewAbcClients(req.body.csvText, req.body.fileName || 'Selected CSV'));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Get all customers
 app.get('/api/customers', (req, res) => {
   res.json(store.getCustomers());
@@ -96,9 +107,29 @@ app.get('/api/clients', (req, res) => {
 
 // Import Customer A (ABC Accounting) clients.csv
 app.post('/api/import/customer-a/clients', (req, res) => {
-  const { clients, rejected } = importClients();
-  store.setClients(clients);
-  res.json({ imported: clients.length, rejected, clients });
+  try {
+    const selectedCsv = req.body?.csvText;
+    if (selectedCsv !== undefined && (typeof selectedCsv !== 'string' || !selectedCsv.trim())) {
+      return res.status(400).json({ error: 'Choose a CSV file' });
+    }
+    const { clients, rejected } = importClients(selectedCsv);
+    const existing = store.getClients();
+    const existingIds = new Set(existing.map(client => client.id));
+    const added = clients.filter(client => {
+      if (existingIds.has(client.id)) return false;
+      existingIds.add(client.id);
+      return true;
+    });
+    store.setClients([...existing, ...added]);
+    res.json({
+      imported: added.length,
+      skipped: clients.length - added.length,
+      rejected,
+      clients: store.getClients()
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // Start server

@@ -18,3 +18,18 @@ test('importClients maps every Customer A client with no rejects', () => {
   assert.strictEqual(first.startDate, '2023-01-15');
   assert.strictEqual(first.annualRevenue, 2500000);
 });
+
+test('importClients maps selected CSV text and rejects a missing client ID', () => {
+  const csvText = [
+    'Client ID,Client Name,Business Type,Status,Date Onboarded',
+    'DEMO-1,Selected Client,LLC,Active,10/27/2026',
+    ',Missing ID,LLC,Active,10/27/2026'
+  ].join('\n');
+  const { clients, rejected } = importClients(csvText);
+  assert.strictEqual(clients.length, 1);
+  assert.strictEqual(clients[0].id, 'DEMO-1');
+  assert.strictEqual(clients[0].name, 'Selected Client');
+  assert.strictEqual(clients[0].entityType, 'llc');
+  assert.strictEqual(rejected.length, 1);
+  assert.ok(rejected[0].errors.includes('Missing Client ID'));
+});

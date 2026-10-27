@@ -41,7 +41,7 @@ function parseCsv(text) {
   return rows;
 }
 
-function previewAbcClients(csvText) {
+function previewAbcClients(csvText, sourceName = 'ABC Accounting clients.csv') {
   const [header, ...dataRows] = parseCsv(csvText);
   if (!header) throw new Error('CSV is empty');
 
@@ -62,7 +62,7 @@ function previewAbcClients(csvText) {
   });
 
   return {
-    sourceName: 'ABC Accounting clients.csv',
+    sourceName,
     mappings,
     totalRows: rows.length,
     readyCount: rows.filter(row => row.errors.length === 0).length,
