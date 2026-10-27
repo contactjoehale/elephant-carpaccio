@@ -30,6 +30,7 @@ test('importClients maps selected CSV text and rejects a missing client ID', () 
   assert.strictEqual(clients[0].id, 'DEMO-1');
   assert.strictEqual(clients[0].name, 'Selected Client');
   assert.strictEqual(clients[0].entityType, 'llc');
+  assert.strictEqual(clients[0].annualRevenue, null);
   assert.strictEqual(rejected.length, 1);
   assert.ok(rejected[0].errors.includes('Missing Client ID'));
 });

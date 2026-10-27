@@ -364,8 +364,19 @@ function CustomerInfoTab() {
 
 function ImportTab() {
   const [result, setResult] = useState(null);
+  const [clients, setClients] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(async res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(setClients)
+      .catch(err => setError(`Could not load saved clients: ${err.message}`));
+  }, []);
 
   async function runImport() {
     setBusy(true);
@@ -373,7 +384,9 @@ function ImportTab() {
     try {
       const res = await fetch('/api/import/customer-a/clients', { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setResult(await res.json());
+      const data = await res.json();
+      setResult(data);
+      setClients(data.clients);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -393,11 +406,12 @@ function ImportTab() {
 
       {error && <p style={{ color: '#dc2626' }}>⚠️ Import failed: {error}</p>}
 
-      {result && (
+      {(result || clients.length > 0) && (
         <div style={{ marginTop: '20px' }}>
-          <p data-testid="import-summary">
+          {result && <p data-testid="import-summary">
             Imported {result.imported} client(s), {result.rejected.length} rejected
-          </p>
+          </p>}
+          <h3>Saved clients</h3>
           <table data-testid="clients-table" style={{ width: '100%', textAlign: 'left' }}>
             <thead>
               <tr>
@@ -405,14 +419,14 @@ function ImportTab() {
               </tr>
             </thead>
             <tbody>
-              {result.clients.map(c => (
+              {clients.map(c => (
                 <tr key={c.id}>
                   <td>{c.id}</td>
                   <td>{c.name}</td>
                   <td>{c.entityType}</td>
                   <td>{c.status}</td>
                   <td>{c.startDate}</td>
-                  <td>{c.annualRevenue.toLocaleString()}</td>
+                  <td>{c.annualRevenue == null ? '—' : c.annualRevenue.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

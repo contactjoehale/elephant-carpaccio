@@ -58,10 +58,9 @@ test.describe('Customer A import', () => {
     await page.getByRole('button', { name: 'Import clients' }).click();
 
     await expect(page.getByTestId('import-summary')).toContainText('0 rejected');
-    const firstRow = page.getByTestId('clients-table').locator('tbody tr').first();
-    await expect(firstRow).toContainText('C001');
-    await expect(firstRow).toContainText('2023-01-15');
-    await expect(firstRow).toContainText('active');
+    const clientRow = page.getByTestId('clients-table').locator('tbody tr', { hasText: 'C001' });
+    await expect(clientRow).toContainText('2023-01-15');
+    await expect(clientRow).toContainText('active');
   });
 
   test('imports a selected CSV into saved clients and reads it after refresh', async ({ page }) => {
@@ -91,6 +90,8 @@ test.describe('Customer A import', () => {
     await page.reload();
     await page.getByRole('button', { name: 'Data Mapping' }).click();
     await expect(page.locator('.imported-clients')).toContainText(`${clientId} — Selected Client`);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.getByTestId('clients-table')).toContainText(clientId);
 
     const repeat = await page.request.post('/api/import/customer-a/clients', { data: { csvText } });
     expect((await repeat.json()).imported).toBe(0);

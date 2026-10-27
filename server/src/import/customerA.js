@@ -42,9 +42,12 @@ function mapRow(row) {
   const status = STATUS[row['Status']];
   const entityType = ENTITY_TYPE[row['Business Type']];
   const startDate = normalizeDate(row['Date Onboarded']);
+  const revenueText = row['Annual Revenue']?.trim();
+  const annualRevenue = revenueText ? Number(revenueText) : null;
   if (!status) errors.push(`Unknown status "${row['Status']}"`);
   if (!entityType) errors.push(`Unknown business type "${row['Business Type']}"`);
   if (!startDate) errors.push(`Bad date "${row['Date Onboarded']}"`);
+  if (revenueText && !Number.isFinite(annualRevenue)) errors.push(`Bad annual revenue "${revenueText}"`);
 
   return {
     client: {
@@ -54,7 +57,7 @@ function mapRow(row) {
       status,
       startDate,
       taxId: row['Tax ID'],
-      annualRevenue: Number(row['Annual Revenue']),
+      annualRevenue,
       industry: row['Industry'],
       paymentTerms: row['Payment Terms'],
       primaryContact: row['Primary Contact']

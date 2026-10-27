@@ -4,13 +4,17 @@
  */
 
 const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('../models');
+const path = require('node:path');
+const { loadClients, saveClients } = require('./clientPersistence');
+
+const clientsFile = process.env.CLIENT_STORE_PATH || path.resolve(__dirname, '../../.data/clients.json');
 
 // In-memory storage
 const store = {
   customers: [],
   tenants: [],
   onboardingStates: [],
-  clients: []
+  clients: loadClients(clientsFile)
 };
 
 // Seed with example data
@@ -110,6 +114,7 @@ function getClients() {
 }
 
 function setClients(clients) {
+  saveClients(clientsFile, clients);
   store.clients = [...clients];
   return getClients();
 }
