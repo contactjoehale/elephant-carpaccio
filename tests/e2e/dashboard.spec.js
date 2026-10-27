@@ -63,6 +63,38 @@ test.describe('Customer A import', () => {
     await expect(firstRow).toContainText('2023-01-15');
     await expect(firstRow).toContainText('active');
   });
+
+  test('imports a selected CSV into saved clients and reads it after refresh', async ({ page }) => {
+    const clientId = `DEMO-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const csvText = [
+      'Client ID,Client Name,Business Type,Status,Date Onboarded',
+      `${clientId},Selected Client,LLC,Active,10/27/2026`
+    ].join('\n');
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Data Mapping' }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'selected-clients.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csvText)
+    });
+
+    await expect(page.getByText('Previewing selected-clients.csv before import.')).toBeVisible();
+    await page.getByRole('button', { name: 'Import selected clients' }).click();
+    await expect(page.getByRole('status')).toContainText('1 imported');
+    await expect(page.locator('.imported-clients')).toContainText(`${clientId} — Selected Client`);
+
+    const saved = await page.request.get('/api/clients');
+    expect((await saved.json()).find(client => client.id === clientId)).toMatchObject({
+      name: 'Selected Client', entityType: 'llc', status: 'active'
+    });
+
+    await page.reload();
+    await page.getByRole('button', { name: 'Data Mapping' }).click();
+    await expect(page.locator('.imported-clients')).toContainText(`${clientId} — Selected Client`);
+
+    const repeat = await page.request.post('/api/import/customer-a/clients', { data: { csvText } });
+    expect((await repeat.json()).imported).toBe(0);
+  });
 });
 
 test.describe('Onboarding Dashboard', () => {
