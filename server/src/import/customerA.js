@@ -21,6 +21,7 @@ const ENTITY_TYPE = {
 
 function parseCsv(text) {
   const [header, ...lines] = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!header) throw new Error('CSV is empty');
   const columns = header.split(',');
   return lines.map(line => {
     const cells = line.split(',');
@@ -36,6 +37,8 @@ function normalizeDate(value) {
 
 function mapRow(row) {
   const errors = [];
+  if (!row['Client ID']?.trim()) errors.push('Missing Client ID');
+  if (!row['Client Name']?.trim()) errors.push('Missing Client Name');
   const status = STATUS[row['Status']];
   const entityType = ENTITY_TYPE[row['Business Type']];
   const startDate = normalizeDate(row['Date Onboarded']);
@@ -61,8 +64,8 @@ function mapRow(row) {
 }
 
 /** @returns {{ clients: object[], rejected: {row: object, errors: string[]}[] }} */
-function importClients() {
-  const rows = parseCsv(fs.readFileSync(CLIENTS_CSV, 'utf8'));
+function importClients(csvText = fs.readFileSync(CLIENTS_CSV, 'utf8')) {
+  const rows = parseCsv(csvText);
   const clients = [];
   const rejected = [];
   for (const row of rows) {

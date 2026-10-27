@@ -151,6 +151,10 @@ function Checklist({ steps }) {
 
 function DataMappingTab() {
   const [preview, setPreview] = useState(null);
+  const [selectedCsv, setSelectedCsv] = useState(null);
+  const [savedClients, setSavedClients] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -164,37 +168,105 @@ function DataMappingTab() {
       })
       .then(setPreview)
       .catch(err => setError(err.message));
+    fetch('/api/clients')
+      .then(response => response.json())
+      .then(setSavedClients)
+      .catch(() => setError('Could not load saved clients'));
   }, []);
 
-  if (error) return <div role="alert" className="placeholder">{error}</div>;
-  if (!preview) return <div className="placeholder">Loading client preview...</div>;
+  async function selectFile(event) {
+    const file = event.target.files?.[0];
+    setPreview(null);
+    setSelectedCsv(null);
+    setSummary(null);
+    setError(null);
+    if (!file) return;
+    setBusy(true);
+    try {
+      const csvText = await file.text();
+      const response = await fetch('/api/client-imports/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText, fileName: file.name })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      setPreview(body);
+      setSelectedCsv(csvText);
+    } catch (err) {
+      setError(err.message || 'Could not preview selected file');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importSelectedFile() {
+    if (!selectedCsv) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/import/customer-a/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText: selectedCsv })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      setSavedClients(body.clients);
+      setSummary(`${body.imported} imported, ${body.skipped} already present, ${body.rejected.length} rejected`);
+    } catch (err) {
+      setError(err.message || 'Could not import selected file');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="mapping-preview">
       <h2>Data Mapping</h2>
-      <p>Previewing {preview.sourceName} before import. This first check covers client IDs and names.</p>
-      <div className="mapping-columns" aria-label="Column mapping">
-        {preview.mappings.map(mapping => (
-          <span key={mapping.target}>{mapping.source} → {mapping.target}</span>
-        ))}
+      <p>Select an ABC Accounting clients CSV to check its ID/name mapping and import its valid clients.</p>
+      <div className="mapping-controls">
+        <label htmlFor="client-csv">Client CSV</label>
+        <input id="client-csv" type="file" accept=".csv,text/csv" onChange={selectFile} />
+        <button type="button" onClick={importSelectedFile} disabled={busy || !selectedCsv || !preview?.readyCount}>
+          {busy ? 'Working...' : 'Import selected clients'}
+        </button>
       </div>
-      <p className="mapping-summary">
-        {preview.totalRows} rows · {preview.readyCount} ID/name ready · {preview.errorCount} need attention
-      </p>
-      <div className="mapping-table-container">
-        <table>
-          <thead><tr><th>CSV row</th><th>Client ID</th><th>Name</th><th>Result</th></tr></thead>
-          <tbody>
-            {preview.rows.map(row => (
-              <tr key={row.rowNumber}>
-                <td>{row.rowNumber}</td>
-                <td>{row.clientId || '—'}</td>
-                <td>{row.name || '—'}</td>
-                <td>{row.errors.length ? row.errors.join(', ') : 'Ready'}</td>
-              </tr>
+      {error && <p role="alert" className="mapping-error">{error}</p>}
+      {summary && <p role="status" className="mapping-success">{summary}</p>}
+      {preview ? (
+        <>
+          <p>Previewing {preview.sourceName} before import. This check covers client IDs and names.</p>
+          <div className="mapping-columns" aria-label="Column mapping">
+            {preview.mappings.map(mapping => (
+              <span key={mapping.target}>{mapping.source} → {mapping.target}</span>
             ))}
-          </tbody>
-        </table>
+          </div>
+          <p className="mapping-summary">
+            {preview.totalRows} rows · {preview.readyCount} ID/name ready · {preview.errorCount} need attention
+          </p>
+          <div className="mapping-table-container">
+            <table>
+              <thead><tr><th>CSV row</th><th>Client ID</th><th>Name</th><th>Result</th></tr></thead>
+              <tbody>
+                {preview.rows.map(row => (
+                  <tr key={row.rowNumber}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.clientId || '—'}</td>
+                    <td>{row.name || '—'}</td>
+                    <td>{row.errors.length ? row.errors.join(', ') : 'Ready'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : !error && <p>Loading client preview...</p>}
+      <div className="imported-clients">
+        <h3>Saved clients</h3>
+        {savedClients.length === 0 ? <p>No clients imported yet.</p> : (
+          <ul>{savedClients.map(client => <li key={client.id}>{client.id} — {client.name}</li>)}</ul>
+        )}
       </div>
     </section>
   );

@@ -246,6 +246,11 @@ Intentionally boring and fast:
 | GET | `/api/onboarding` | Dashboard view (all states + customer info) |
 | GET | `/api/tenants/:customerId` | Get tenant by customer ID |
 | GET | `/api/sample-data/abc/clients/preview` | Preview mapped client IDs and names from the bundled ABC Accounting CSV |
+| POST | `/api/client-imports/preview` | Preview mapped client IDs and names from a selected ABC-format CSV |
+| POST | `/api/import/customer-a/clients` | Import the bundled CSV, or a selected CSV sent as `csvText` |
+| GET | `/api/clients` | Read canonical clients saved during this server run |
+
+To demo a selected file, open **Data Mapping**, choose [`sample-data/CustomerA_ABCAccounting/clients.csv`](sample-data/CustomerA_ABCAccounting/clients.csv), and click **Import selected clients**. The saved clients list reads from `/api/clients` and remains visible after a page refresh. It resets when the server restarts.
 
 ---
 
