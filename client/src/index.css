@@ -169,3 +169,38 @@ header p {
   color: #6b7280;
   font-size: 0.9rem;
 }
+
+.mapping-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.mapping-columns span {
+  background: #eff6ff;
+  border-radius: 6px;
+  color: #1d4ed8;
+  padding: 6px 10px;
+}
+
+.mapping-summary {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.mapping-table-container {
+  overflow-x: auto;
+}
+
+.mapping-preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.mapping-preview th,
+.mapping-preview td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+}

@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const { readFile } = require('fs/promises');
 const store = require('./data/store');
+const { filePath, previewAbcClients } = require('./mapping/abcClients');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -12,6 +14,17 @@ app.use(express.json());
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Preview the first sample client file before import
+app.get('/api/sample-data/abc/clients/preview', async (req, res) => {
+  try {
+    const csvText = await readFile(filePath, 'utf8');
+    res.json(previewAbcClients(csvText));
+  } catch (error) {
+    console.error('Could not preview ABC clients:', error);
+    res.status(500).json({ error: 'Could not preview the ABC Accounting clients file' });
+  }
 });
 
 // Get all customers

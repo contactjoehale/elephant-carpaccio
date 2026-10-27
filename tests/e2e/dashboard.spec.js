@@ -38,4 +38,14 @@ test.describe('Onboarding Dashboard', () => {
     // Verify placeholder content is shown
     await expect(page.locator('.placeholder h2')).toContainText('Customer Info');
   });
+
+  test('shows a mapped preview of ABC Accounting clients', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Data Mapping' }).click();
+
+    await expect(page.getByText('ABC Accounting clients.csv')).toBeVisible();
+    await expect(page.getByText('10 rows · 10 ID/name ready · 0 need attention')).toBeVisible();
+    await expect(page.getByText('Client ID → clientId')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Riverside Manufacturing LLC' })).toBeVisible();
+  });
 });

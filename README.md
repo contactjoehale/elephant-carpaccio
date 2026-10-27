@@ -245,6 +245,7 @@ Intentionally boring and fast:
 | GET | `/api/customers/:id/onboarding` | Get onboarding state |
 | GET | `/api/onboarding` | Dashboard view (all states + customer info) |
 | GET | `/api/tenants/:customerId` | Get tenant by customer ID |
+| GET | `/api/sample-data/abc/clients/preview` | Preview mapped client IDs and names from the bundled ABC Accounting CSV |
 
 ---
 
