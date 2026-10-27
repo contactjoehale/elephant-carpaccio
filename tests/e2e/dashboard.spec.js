@@ -1,6 +1,34 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+test.describe('Tenant setup', () => {
+  test('provisions a new customer end to end and shows 50% on the dashboard', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Customer Info' }).click();
+    await page.getByLabel('Customer name').fill('Tenant Flow Test');
+    await page.getByLabel('Industry').fill('Retail');
+    await page.getByLabel('Region').fill('APAC');
+    await page.getByLabel('Contact email').fill('it@tenantflow.example');
+    await page.getByRole('button', { name: 'Add customer' }).click();
+    await expect(page.getByTestId('intake-success')).toBeVisible();
+
+    // Dashboard shows contact info, and the Tenant Setup step links to its tab
+    await page.locator('.tab', { hasText: 'Dashboard' }).click();
+    const card = page.locator('.customer-card', { hasText: 'Tenant Flow Test' });
+    await expect(card).toContainText('it@tenantflow.example');
+    await card.getByRole('link', { name: 'Tenant Setup' }).click();
+
+    await page.getByLabel('Plan for Tenant Flow Test').selectOption('enterprise');
+    await page.getByRole('button', { name: 'Provision Tenant Flow Test' }).click();
+    const row = page.getByTestId('tenants-table').locator('tr', { hasText: 'Tenant Flow Test' });
+    await expect(row).toContainText('active');
+    await expect(row).toContainText('enterprise');
+
+    await page.locator('.tab', { hasText: 'Dashboard' }).click();
+    await expect(page.locator('.customer-card', { hasText: 'Tenant Flow Test' }).locator('.progress-bar')).toContainText('50%');
+  });
+});
+
 test.describe('Customer intake', () => {
   test('validates, then adds a customer to the queue at 25%', async ({ page }) => {
     await page.goto('/');
