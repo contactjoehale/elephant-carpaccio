@@ -5,6 +5,7 @@ const store = require('./data/store');
 const { filePath, previewAbcClients } = require('./mapping/abcClients');
 const { importClients } = require('./import/customerA');
 const { validateIntake, registerCustomer } = require('./intake');
+const { provisionTenant } = require('./tenantSetup');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -73,11 +74,30 @@ app.get('/api/onboarding', (req, res) => {
       ...state,
       customerName: customer?.name || 'Unknown',
       customerIndustry: customer?.industry || '',
-      customerRegion: customer?.region || ''
+      customerRegion: customer?.region || '',
+      customerContactEmail: customer?.contactEmail || ''
     };
   });
   
   res.json(dashboard);
+});
+
+// All tenants with customer name (tenant setup queue)
+app.get('/api/tenants', (req, res) => {
+  const customers = store.getCustomers();
+  res.json(store.getTenants().map(t => ({
+    ...t,
+    customerName: customers.find(c => c.id === t.customerId)?.name || 'Unknown'
+  })));
+});
+
+// Provision a customer's tenant (happy path)
+app.post('/api/tenants/:customerId/provision', (req, res) => {
+  const result = provisionTenant(store, req.params.customerId, req.body?.plan);
+  if (result.error) {
+    return res.status(result.error.status).json({ error: result.error.message });
+  }
+  res.json(result);
 });
 
 // Get tenant by customer ID

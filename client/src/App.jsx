@@ -56,7 +56,7 @@ function App() {
 
       <main className="content">
         {activeTab === 'dashboard' && (
-          <DashboardTab data={onboardingData} loading={loading} error={error} />
+          <DashboardTab data={onboardingData} loading={loading} error={error} onNavigate={setActiveTab} />
         )}
         {activeTab === 'customer-info' && (
           <CustomerInfoTab />
@@ -65,7 +65,7 @@ function App() {
           <DataMappingTab />
         )}
         {activeTab === 'tenant-setup' && (
-          <PlaceholderTab title="Tenant Setup" description="Provision and configure customer tenant" />
+          <TenantSetupTab />
         )}
         {activeTab === 'import' && (
           <ImportTab />
@@ -75,7 +75,7 @@ function App() {
   );
 }
 
-function DashboardTab({ data, loading, error }) {
+function DashboardTab({ data, loading, error, onNavigate }) {
   if (loading) {
     return <div className="placeholder"><p>Loading...</p></div>;
   }
@@ -106,11 +106,12 @@ function DashboardTab({ data, loading, error }) {
           <div className="customer-meta">
             <span>📍 {item.customerRegion}</span>
             <span>🏭 {item.customerIndustry}</span>
+            {item.customerContactEmail && <span>✉️ {item.customerContactEmail}</span>}
           </div>
 
           <div className="progress-section">
             <ProgressBar percent={item.progressPercent} />
-            <Checklist steps={item.steps} />
+            <Checklist steps={item.steps} onNavigate={onNavigate} />
           </div>
         </div>
       ))}
@@ -131,7 +132,14 @@ function ProgressBar({ percent }) {
   );
 }
 
-function Checklist({ steps }) {
+const STEP_TABS = {
+  'Customer Info': 'customer-info',
+  'Data Mapping': 'data-mapping',
+  'Tenant Setup': 'tenant-setup',
+  Import: 'import'
+};
+
+function Checklist({ steps, onNavigate }) {
   return (
     <ul className="checklist">
       {steps.map(step => (
@@ -139,7 +147,16 @@ function Checklist({ steps }) {
           <span className={`step-status ${step.status}`}>
             {step.status === 'completed' ? '✓' : step.order}
           </span>
-          <span>{step.name}</span>
+          {onNavigate && STEP_TABS[step.name] ? (
+            <a
+              href={`#${STEP_TABS[step.name]}`}
+              onClick={e => { e.preventDefault(); onNavigate(STEP_TABS[step.name]); }}
+            >
+              {step.name}
+            </a>
+          ) : (
+            <span>{step.name}</span>
+          )}
           <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#9ca3af' }}>
             {step.status.replace('_', ' ')}
           </span>
@@ -330,6 +347,88 @@ function ImportTab() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+const PLANS = ['starter', 'professional', 'enterprise'];
+
+function TenantSetupTab() {
+  const [tenants, setTenants] = useState(null);
+  const [plans, setPlans] = useState({});
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  function load() {
+    return fetch('/api/tenants')
+      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+      .then(setTenants)
+      .catch(err => setError(err.message));
+  }
+  useEffect(() => { load(); }, []);
+
+  async function provision(customerId, plan) {
+    setBusyId(customerId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tenants/${customerId}/provision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (!tenants) return <div className="placeholder">{error ? `⚠️ ${error}` : 'Loading tenants...'}</div>;
+
+  return (
+    <div>
+      <h2>Tenant Setup</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>Provision and configure customer tenants</p>
+      {error && <p role="alert" style={{ color: '#dc2626' }}>⚠️ {error}</p>}
+      <table data-testid="tenants-table" style={{ width: '100%', textAlign: 'left' }}>
+        <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {tenants.map(t => (
+            <tr key={t.id}>
+              <td>{t.customerName}</td>
+              <td>
+                {t.status === 'active' ? t.plan : (
+                  <select
+                    aria-label={`Plan for ${t.customerName}`}
+                    value={plans[t.customerId] || t.plan}
+                    onChange={e => setPlans({ ...plans, [t.customerId]: e.target.value })}
+                  >
+                    {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                )}
+              </td>
+              <td>{t.status}</td>
+              <td>
+                {t.status !== 'active' && (
+                  <button
+                    className="tab active"
+                    disabled={busyId === t.customerId}
+                    onClick={() => provision(t.customerId, plans[t.customerId] || t.plan)}
+                    aria-label={`Provision ${t.customerName}`}
+                  >
+                    {busyId === t.customerId ? 'Provisioning...' : 'Provision tenant'}
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
