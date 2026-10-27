@@ -62,7 +62,7 @@ function App() {
           <PlaceholderTab title="Customer Info" description="Collect and validate customer information" />
         )}
         {activeTab === 'data-mapping' && (
-          <PlaceholderTab title="Data Mapping" description="Map customer data to platform configuration" />
+          <DataMappingTab />
         )}
         {activeTab === 'tenant-setup' && (
           <PlaceholderTab title="Tenant Setup" description="Provision and configure customer tenant" />
@@ -146,6 +146,57 @@ function Checklist({ steps }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function DataMappingTab() {
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/sample-data/abc/clients/preview')
+      .then(async response => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(setPreview)
+      .catch(err => setError(err.message));
+  }, []);
+
+  if (error) return <div role="alert" className="placeholder">{error}</div>;
+  if (!preview) return <div className="placeholder">Loading client preview...</div>;
+
+  return (
+    <section className="mapping-preview">
+      <h2>Data Mapping</h2>
+      <p>Previewing {preview.sourceName} before import. This first check covers client IDs and names.</p>
+      <div className="mapping-columns" aria-label="Column mapping">
+        {preview.mappings.map(mapping => (
+          <span key={mapping.target}>{mapping.source} → {mapping.target}</span>
+        ))}
+      </div>
+      <p className="mapping-summary">
+        {preview.totalRows} rows · {preview.readyCount} ID/name ready · {preview.errorCount} need attention
+      </p>
+      <div className="mapping-table-container">
+        <table>
+          <thead><tr><th>CSV row</th><th>Client ID</th><th>Name</th><th>Result</th></tr></thead>
+          <tbody>
+            {preview.rows.map(row => (
+              <tr key={row.rowNumber}>
+                <td>{row.rowNumber}</td>
+                <td>{row.clientId || '—'}</td>
+                <td>{row.name || '—'}</td>
+                <td>{row.errors.length ? row.errors.join(', ') : 'Ready'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
