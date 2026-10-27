@@ -151,50 +151,124 @@ function Checklist({ steps }) {
 
 function DataMappingTab() {
   const [preview, setPreview] = useState(null);
+  const [csvText, setCsvText] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [importedClients, setImportedClients] = useState([]);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch('/api/sample-data/abc/clients/preview')
+    fetch('/api/client-imports')
       .then(async response => {
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error('Could not load imported clients');
         return response.json();
       })
-      .then(setPreview)
+      .then(setImportedClients)
       .catch(err => setError(err.message));
   }, []);
 
-  if (error) return <div role="alert" className="placeholder">{error}</div>;
-  if (!preview) return <div className="placeholder">Loading client preview...</div>;
+  async function selectFile(event) {
+    const file = event.target.files?.[0];
+    setPreview(null);
+    setCsvText(null);
+    setFileName(file?.name || '');
+    setError(null);
+    setNotice(null);
+    if (!file) return;
+
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const response = await fetch('/api/client-imports/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText: text, fileName: file.name })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setCsvText(text);
+      setPreview(data);
+    } catch (err) {
+      setError(err.message || 'Could not preview this file');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importFirstClient() {
+    if (!csvText || !preview) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/client-imports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText, fileName })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setImportedClients(clients => [...clients, data]);
+      setNotice(`Imported ${data.clientId}: ${data.name}`);
+    } catch (err) {
+      setError(err.message || 'Could not import this client');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const first = preview?.rows[0];
+  const alreadyImported = first && importedClients.some(client => client.clientId === first.clientId);
 
   return (
     <section className="mapping-preview">
       <h2>Data Mapping</h2>
-      <p>Previewing {preview.sourceName} before import. This first check covers client IDs and names.</p>
-      <div className="mapping-columns" aria-label="Column mapping">
-        {preview.mappings.map(mapping => (
-          <span key={mapping.target}>{mapping.source} → {mapping.target}</span>
-        ))}
+      <p>Choose an ABC Accounting clients CSV. This first slice checks IDs and names, then imports one client.</p>
+      <div className="mapping-controls">
+        <label htmlFor="client-csv">Client CSV</label>
+        <input id="client-csv" type="file" accept=".csv,text/csv" onChange={selectFile} />
+        <button type="button" onClick={importFirstClient} disabled={busy || !first || first.errors.length > 0 || alreadyImported}>
+          {busy ? 'Working...' : 'Import first client'}
+        </button>
       </div>
-      <p className="mapping-summary">
-        {preview.totalRows} rows · {preview.readyCount} ID/name ready · {preview.errorCount} need attention
-      </p>
-      <div className="mapping-table-container">
-        <table>
-          <thead><tr><th>CSV row</th><th>Client ID</th><th>Name</th><th>Result</th></tr></thead>
-          <tbody>
-            {preview.rows.map(row => (
-              <tr key={row.rowNumber}>
-                <td>{row.rowNumber}</td>
-                <td>{row.clientId || '—'}</td>
-                <td>{row.name || '—'}</td>
-                <td>{row.errors.length ? row.errors.join(', ') : 'Ready'}</td>
-              </tr>
+      {error && <p role="alert" className="mapping-error">{error}</p>}
+      {notice && <p role="status" className="mapping-success">{notice}</p>}
+      {alreadyImported && <p role="status">The first client in this file is already imported.</p>}
+      {preview && (
+        <>
+          <h3>Preview: {preview.sourceName}</h3>
+          <div className="mapping-columns" aria-label="Column mapping">
+            {preview.mappings.map(mapping => (
+              <span key={mapping.target}>{mapping.source} → {mapping.target}</span>
             ))}
-          </tbody>
-        </table>
+          </div>
+          <p className="mapping-summary">
+            {preview.totalRows} rows · {preview.readyCount} ID/name ready · {preview.errorCount} need attention
+          </p>
+          <p>Only the first data row will be imported in this slice.</p>
+          <div className="mapping-table-container">
+            <table>
+              <thead><tr><th>CSV row</th><th>Client ID</th><th>Name</th><th>Result</th></tr></thead>
+              <tbody>
+                {preview.rows.map(row => (
+                  <tr key={row.rowNumber}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.clientId || '—'}</td>
+                    <td>{row.name || '—'}</td>
+                    <td>{row.errors.length ? row.errors.join(', ') : 'Ready'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <div className="imported-clients">
+        <h3>Imported clients</h3>
+        {importedClients.length === 0 ? <p>No clients imported yet.</p> : (
+          <ul>{importedClients.map(client => <li key={client.clientId}>{client.clientId} — {client.name}</li>)}</ul>
+        )}
       </div>
     </section>
   );

@@ -1,8 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const { readFile } = require('fs/promises');
 const store = require('./data/store');
-const { filePath, previewAbcClients } = require('./mapping/abcClients');
+const { previewAbcClients } = require('./mapping/abcClients');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,15 +15,51 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Preview the first sample client file before import
-app.get('/api/sample-data/abc/clients/preview', async (req, res) => {
-  try {
-    const csvText = await readFile(filePath, 'utf8');
-    res.json(previewAbcClients(csvText));
-  } catch (error) {
-    console.error('Could not preview ABC clients:', error);
-    res.status(500).json({ error: 'Could not preview the ABC Accounting clients file' });
+function previewSelectedCsv(body) {
+  if (typeof body?.csvText !== 'string' || !body.csvText.trim()) {
+    throw new Error('Choose a CSV file');
   }
+  return previewAbcClients(body.csvText, body.fileName || 'Selected CSV');
+}
+
+// Read a selected ABC-format CSV without saving anything
+app.post('/api/client-imports/preview', (req, res) => {
+  try {
+    res.json(previewSelectedCsv(req.body));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/client-imports', (req, res) => {
+  res.json(store.getImportedClients());
+});
+
+// Import exactly one row so CS can verify a complete path before bulk import
+app.post('/api/client-imports', (req, res) => {
+  let preview;
+  try {
+    preview = previewSelectedCsv(req.body);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  const first = preview.rows[0];
+  if (!first) return res.status(400).json({ error: 'CSV has no client rows' });
+  if (first.errors.length) {
+    return res.status(422).json({ error: `Row ${first.rowNumber}: ${first.errors.join(', ')}` });
+  }
+  if (store.getImportedClientById(first.clientId)) {
+    return res.status(409).json({ error: `Client ${first.clientId} has already been imported` });
+  }
+
+  const imported = store.addImportedClient({
+    clientId: first.clientId,
+    name: first.name,
+    sourceName: preview.sourceName,
+    importedAt: new Date().toISOString()
+  });
+  res.status(201).json(imported);
 });
 
 // Get all customers

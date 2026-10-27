@@ -177,6 +177,39 @@ header p {
   margin: 16px 0;
 }
 
+.mapping-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.mapping-controls button {
+  background: #2563eb;
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  padding: 10px 14px;
+}
+
+.mapping-controls button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mapping-error { color: #b91c1c; }
+.mapping-success { color: #047857; }
+
+.imported-clients {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+
+.imported-clients ul { margin: 8px 0 0 20px; }
+
 .mapping-columns span {
   background: #eff6ff;
   border-radius: 6px;

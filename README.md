@@ -245,7 +245,17 @@ Intentionally boring and fast:
 | GET | `/api/customers/:id/onboarding` | Get onboarding state |
 | GET | `/api/onboarding` | Dashboard view (all states + customer info) |
 | GET | `/api/tenants/:customerId` | Get tenant by customer ID |
-| GET | `/api/sample-data/abc/clients/preview` | Preview mapped client IDs and names from the bundled ABC Accounting CSV |
+| POST | `/api/client-imports/preview` | Preview mapped client IDs and names from a selected ABC-format CSV |
+| POST | `/api/client-imports` | Import the first client row from a selected ABC-format CSV |
+| GET | `/api/client-imports` | List clients imported during this server run |
+
+### Try the first client import
+
+1. Start the app with `npm start` and open `http://localhost:5173`.
+2. Open **Data Mapping** and choose [`sample-data/CustomerA_ABCAccounting/clients.csv`](sample-data/CustomerA_ABCAccounting/clients.csv).
+3. Review the ID/name mapping, then click **Import first client**. The imported list shows `C001 — Riverside Manufacturing LLC`; refresh to confirm the server saved it.
+
+This first slice imports one client at a time. The list is held in memory and resets when the server restarts.
 
 ---
 
