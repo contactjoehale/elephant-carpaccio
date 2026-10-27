@@ -3,6 +3,8 @@ const cors = require('cors');
 const { readFile } = require('fs/promises');
 const store = require('./data/store');
 const { filePath, previewAbcClients } = require('./mapping/abcClients');
+const { importClients } = require('./import/customerA');
+const { validateIntake, registerCustomer } = require('./intake');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +32,15 @@ app.get('/api/sample-data/abc/clients/preview', async (req, res) => {
 // Get all customers
 app.get('/api/customers', (req, res) => {
   res.json(store.getCustomers());
+});
+
+// Customer intake: validate and register a new customer
+app.post('/api/customers', (req, res) => {
+  const { value, errors } = validateIntake(req.body);
+  if (Object.keys(errors).length) {
+    return res.status(400).json({ errors });
+  }
+  res.status(201).json(registerCustomer(store, value));
 });
 
 // Get customer by ID
@@ -76,6 +87,18 @@ app.get('/api/tenants/:customerId', (req, res) => {
     return res.status(404).json({ error: 'Tenant not found' });
   }
   res.json(tenant);
+});
+
+// Imported (canonical) clients
+app.get('/api/clients', (req, res) => {
+  res.json(store.getClients());
+});
+
+// Import Customer A (ABC Accounting) clients.csv
+app.post('/api/import/customer-a/clients', (req, res) => {
+  const { clients, rejected } = importClients();
+  store.setClients(clients);
+  res.json({ imported: clients.length, rejected, clients });
 });
 
 // Start server

@@ -33,7 +33,7 @@ function App() {
         setOnboardingData([]);
         setLoading(false);
       });
-  }, []);
+  }, [activeTab === 'dashboard']);
 
   return (
     <div className="app">
@@ -59,7 +59,7 @@ function App() {
           <DashboardTab data={onboardingData} loading={loading} error={error} />
         )}
         {activeTab === 'customer-info' && (
-          <PlaceholderTab title="Customer Info" description="Collect and validate customer information" />
+          <CustomerInfoTab />
         )}
         {activeTab === 'data-mapping' && (
           <DataMappingTab />
@@ -68,7 +68,7 @@ function App() {
           <PlaceholderTab title="Tenant Setup" description="Provision and configure customer tenant" />
         )}
         {activeTab === 'import' && (
-          <PlaceholderTab title="Import" description="Import customer data into the platform" />
+          <ImportTab />
         )}
       </main>
     </div>
@@ -197,6 +197,140 @@ function DataMappingTab() {
         </table>
       </div>
     </section>
+  );
+}
+
+const INTAKE_FIELDS = [
+  { name: 'name', label: 'Customer name' },
+  { name: 'industry', label: 'Industry' },
+  { name: 'region', label: 'Region' },
+  { name: 'contactEmail', label: 'Contact email', type: 'email' }
+];
+const EMPTY_FORM = { name: '', industry: '', region: '', contactEmail: '' };
+
+function CustomerInfoTab() {
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
+  const [created, setCreated] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setCreated(null);
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 400 && body.errors) {
+        setErrors(body.errors);
+      } else if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      } else {
+        setErrors({});
+        setCreated(body.customer);
+        setForm(EMPTY_FORM);
+      }
+    } catch (err) {
+      setErrors({ form: `Could not save customer: ${err.message}` });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2>Customer Info</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Collect and validate customer information
+      </p>
+      <form onSubmit={submit} noValidate style={{ maxWidth: '420px', display: 'grid', gap: '12px' }}>
+        {INTAKE_FIELDS.map(f => (
+          <label key={f.name} style={{ display: 'grid', gap: '4px' }}>
+            {f.label}
+            <input
+              type={f.type || 'text'}
+              value={form[f.name]}
+              onChange={e => setForm({ ...form, [f.name]: e.target.value })}
+            />
+            {errors[f.name] && <span role="alert" style={{ color: '#dc2626', fontSize: '0.85rem' }}>{errors[f.name]}</span>}
+          </label>
+        ))}
+        {errors.form && <span role="alert" style={{ color: '#dc2626' }}>{errors.form}</span>}
+        <button type="submit" className="tab active" disabled={busy}>
+          {busy ? 'Saving...' : 'Add customer'}
+        </button>
+      </form>
+      {created && (
+        <p data-testid="intake-success" style={{ marginTop: '20px' }}>
+          ✓ Added {created.name} to the onboarding queue
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ImportTab() {
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function runImport() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/import/customer-a/clients', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setResult(await res.json());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2>Import</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        ABC Accounting (Customer A) — clients.csv
+      </p>
+      <button className="tab active" onClick={runImport} disabled={busy}>
+        {busy ? 'Importing...' : 'Import clients'}
+      </button>
+
+      {error && <p style={{ color: '#dc2626' }}>⚠️ Import failed: {error}</p>}
+
+      {result && (
+        <div style={{ marginTop: '20px' }}>
+          <p data-testid="import-summary">
+            Imported {result.imported} client(s), {result.rejected.length} rejected
+          </p>
+          <table data-testid="clients-table" style={{ width: '100%', textAlign: 'left' }}>
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Type</th><th>Status</th><th>Start date</th><th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.clients.map(c => (
+                <tr key={c.id}>
+                  <td>{c.id}</td>
+                  <td>{c.name}</td>
+                  <td>{c.entityType}</td>
+                  <td>{c.status}</td>
+                  <td>{c.startDate}</td>
+                  <td>{c.annualRevenue.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

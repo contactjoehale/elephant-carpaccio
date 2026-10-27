@@ -1,6 +1,42 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+test.describe('Customer intake', () => {
+  test('validates, then adds a customer to the queue at 25%', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Customer Info' }).click();
+
+    await page.getByRole('button', { name: 'Add customer' }).click();
+    await expect(page.getByRole('alert').first()).toContainText('required');
+
+    await page.getByLabel('Customer name').fill('Globex Intake Test');
+    await page.getByLabel('Industry').fill('Energy');
+    await page.getByLabel('Region').fill('EMEA');
+    await page.getByLabel('Contact email').fill('ops@globex.example');
+    await page.getByRole('button', { name: 'Add customer' }).click();
+    await expect(page.getByTestId('intake-success')).toContainText('Globex Intake Test');
+
+    await page.locator('.tab', { hasText: 'Dashboard' }).click();
+    const card = page.locator('.customer-card', { hasText: 'Globex Intake Test' });
+    await expect(card).toBeVisible();
+    await expect(card.locator('.progress-bar')).toContainText('25%');
+  });
+});
+
+test.describe('Customer A import', () => {
+  test('imports and normalizes ABC Accounting clients', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.tab', { hasText: 'Import' }).click();
+    await page.getByRole('button', { name: 'Import clients' }).click();
+
+    await expect(page.getByTestId('import-summary')).toContainText('0 rejected');
+    const firstRow = page.getByTestId('clients-table').locator('tbody tr').first();
+    await expect(firstRow).toContainText('C001');
+    await expect(firstRow).toContainText('2023-01-15');
+    await expect(firstRow).toContainText('active');
+  });
+});
+
 test.describe('Onboarding Dashboard', () => {
   test('should display the dashboard heading', async ({ page }) => {
     await page.goto('/');
@@ -25,8 +61,7 @@ test.describe('Onboarding Dashboard', () => {
     await page.goto('/');
 
     // Wait for data to load and verify example customer is shown
-    await expect(page.locator('.customer-card')).toBeVisible();
-    await expect(page.locator('.customer-card h3')).toContainText('Acme Corporation');
+    await expect(page.locator('.customer-card h3', { hasText: 'Acme Corporation' })).toBeVisible();
   });
 
   test('should switch between tabs', async ({ page }) => {
@@ -35,8 +70,8 @@ test.describe('Onboarding Dashboard', () => {
     // Click on Customer Info tab
     await page.getByRole('button', { name: 'Customer Info' }).click();
     
-    // Verify placeholder content is shown
-    await expect(page.locator('.placeholder h2')).toContainText('Customer Info');
+    // Verify the tab content is shown
+    await expect(page.locator('h2')).toContainText('Customer Info');
   });
 
   test('shows a mapped preview of ABC Accounting clients', async ({ page }) => {
